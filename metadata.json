@@ -1,0 +1,10 @@
+{
+  "name": " ScamLens AI",
+  "description": "Check if a message might be a scam before you act on it with plain-language risk reports, verbatim evidence highlighting, and display-only link checks.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

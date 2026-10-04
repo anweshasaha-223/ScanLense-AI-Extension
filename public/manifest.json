@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "ScamLens AI — Scam & Phishing Detector",
+  "short_name": "ScamLens AI",
+  "version": "1.3.0",
+  "description": "Check if a message, email, or link might be a scam before you act with Gemma AI risk reports, verbatim evidence, and inert link inspection.",
+  "action": {
+    "default_popup": "index.html",
+    "default_title": "ScamLens AI — Scan Message or Page"
+  },
+  "side_panel": {
+    "default_path": "index.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": [
+    "activeTab",
+    "contextMenus",
+    "storage",
+    "scripting",
+    "sidePanel"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

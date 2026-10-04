@@ -1,0 +1,61 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Represents an authenticated user account",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$", "description": "Unique identifier of the user" },
+        "email": { "type": "string", "format": "email", "maxLength": 256, "description": "User's email address" },
+        "displayName": { "type": "string", "maxLength": 120, "description": "Display name of the user" },
+        "photoURL": { "type": "string", "maxLength": 1024, "description": "Profile picture URL" },
+        "lastLogin": { "type": "string", "format": "date-time", "maxLength": 64, "description": "Last login ISO timestamp" }
+      },
+      "required": ["uid", "email", "displayName", "lastLogin"]
+    },
+    "AnalysisRecord": {
+      "title": "AnalysisRecord",
+      "description": "Represents a persisted scam/phishing analysis report",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$", "description": "ID of user who ran the analysis" },
+        "risk": { "type": "string", "enum": ["HIGH", "MEDIUM", "LOW", "UNCERTAIN"], "maxLength": 32, "description": "Risk verdict" },
+        "scamTypeName": { "type": "string", "maxLength": 200, "description": "Identified fraud archetype" },
+        "summary": { "type": "string", "maxLength": 2000, "description": "Plain language assessment summary" },
+        "threatScore": { "type": "number", "description": "Computed 0-100 risk score" },
+        "evidenceCount": { "type": "number", "description": "Number of verified evidence quotes" },
+        "linkCount": { "type": "number", "description": "Number of inspected links" },
+        "userAction": { "type": "string", "maxLength": 64, "description": "User interaction context" },
+        "createdAt": { "type": "string", "format": "date-time", "maxLength": 64, "description": "Timestamp of analysis" }
+      },
+      "required": ["userId", "risk", "scamTypeName", "summary", "threatScore", "evidenceCount", "linkCount", "userAction", "createdAt"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Represents a message in a multi-turn Gemma/Gemini conversation thread",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$", "description": "Owner of the conversation" },
+        "role": { "type": "string", "enum": ["user", "model"], "maxLength": 16, "description": "Message author role" },
+        "content": { "type": "string", "maxLength": 4000, "description": "Text content of the message" },
+        "model": { "type": "string", "maxLength": 64, "description": "Model used for this turn" },
+        "createdAt": { "type": "string", "format": "date-time", "maxLength": 64, "description": "Message timestamp" }
+      },
+      "required": ["userId", "role", "content", "model", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profile document"
+    },
+    "/users/{userId}/analyses/{analysisId}": {
+      "schema": { "$ref": "#/entities/AnalysisRecord" },
+      "description": "History of scam analysis reports saved by the user"
+    },
+    "/users/{userId}/chats/{chatId}": {
+      "schema": { "$ref": "#/entities/ChatMessage" },
+      "description": "Persisted chat history with Gemma/Gemini chatbot"
+    }
+  }
+}
