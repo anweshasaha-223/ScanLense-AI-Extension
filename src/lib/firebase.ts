@@ -88,14 +88,18 @@ export function handleFirestoreError(
   throw new Error(JSON.stringify(errInfo));
 }
 
+const isChromeExtProtocol =
+  typeof window !== 'undefined' && window.location.protocol === 'chrome-extension:';
+
 // Test connection on boot per Firebase skill guidelines
 export async function testFirestoreConnection(): Promise<boolean> {
+  if (isChromeExtProtocol) return true;
   try {
     await getDocFromServer(doc(db, 'test', 'connection'));
     return true;
   } catch (error) {
     if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.error('Please check your Firebase configuration.');
+      console.warn('Firestore offline mode active.');
     }
     return false;
   }
@@ -163,16 +167,18 @@ export function onAuthStateChanged(
     }
   });
 
-  // Also check redirect result if returning from mobile Google sign-in redirect
-  getRedirectResult(auth)
-    .then(async (result) => {
-      if (result?.user) {
-        await persistFirebaseUserProfile(result.user);
-      }
-    })
-    .catch(() => {
-      // ignore redirect check errors on normal page load
-    });
+  // Also check redirect result if returning from mobile Google sign-in redirect (http/https only)
+  if (!isChromeExtProtocol) {
+    getRedirectResult(auth)
+      .then(async (result) => {
+        if (result?.user) {
+          await persistFirebaseUserProfile(result.user);
+        }
+      })
+      .catch(() => {
+        // ignore redirect check errors on normal page load
+      });
+  }
 
   return () => {
     authListeners.delete(callback);
@@ -210,10 +216,17 @@ export interface SignInResult {
 
 /**
  * Attempts Google Sign-In via Firebase Popup.
- * Outside localhost (e.g. on Netlify or mobile webviews where auth/unauthorized-domain or popup block can happen),
- * returns structured diagnostic details so the Portable Sign-In Modal can seamlessly authenticate the user.
+ * Inside Chrome Extensions (MV3 CSP) or external domains, opens Portable Sign-In Modal seamlessly.
  */
 export async function signInWithGoogle(): Promise<SignInResult> {
+  if (isChromeExtProtocol) {
+    return {
+      user: null,
+      errorCode: 'auth/chrome-extension',
+      errorMessage: 'Chrome Extension Manifest V3 uses Portable Account Sign-In.',
+      requiresModal: true,
+    };
+  }
   try {
     const result = await signInWithPopup(auth, googleProvider);
     const user = result.user;

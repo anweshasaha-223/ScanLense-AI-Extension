@@ -60,21 +60,30 @@ export async function safeFetchJson<T = any>(
     }
   };
 
-  // 1. Try relative path on current origin first
-  try {
-    const localResult = await tryUrl(endpointPath);
-    if (!localResult.isHtml) {
-      return { ok: localResult.ok, status: localResult.status, data: localResult.data };
+  const isExtensionProtocol =
+    typeof window !== 'undefined' && window.location.protocol === 'chrome-extension:';
+
+  // 1. Try relative path on current origin first (only on http/https origins)
+  if (!isExtensionProtocol) {
+    try {
+      const localResult = await tryUrl(endpointPath);
+      if (!localResult.isHtml) {
+        return { ok: localResult.ok, status: localResult.status, data: localResult.data };
+      }
+    } catch {
+      // Fall through to remote Cloud Run origin
     }
-  } catch {
-    // Fall through to remote Cloud Run origin
   }
 
-  // 2. If relative path returned HTML (static host like Netlify) or network error, try remote Cloud Run backend
+  // 2. Try remote Cloud Run backend (used by Chrome Extension popup and static hosts)
   if (typeof window !== 'undefined' && window.location.origin !== REMOTE_BACKEND_ORIGIN) {
-    const remoteResult = await tryUrl(`${REMOTE_BACKEND_ORIGIN}${endpointPath}`);
-    if (!remoteResult.isHtml) {
-      return { ok: remoteResult.ok, status: remoteResult.status, data: remoteResult.data };
+    try {
+      const remoteResult = await tryUrl(`${REMOTE_BACKEND_ORIGIN}${endpointPath}`);
+      if (!remoteResult.isHtml) {
+        return { ok: remoteResult.ok, status: remoteResult.status, data: remoteResult.data };
+      }
+    } catch {
+      // Fall through to client-side engine
     }
   }
 

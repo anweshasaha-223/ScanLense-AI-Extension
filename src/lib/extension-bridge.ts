@@ -94,7 +94,6 @@ export async function grabActiveTabSelection(fallbackTab?: SimulatedBrowserTab):
   text: string;
   sourceLabel: string;
 }> {
-  // 1. If running inside Chrome Extension, query active tab via content script or scripting API
   if (isChromeExtensionContext() && chrome?.tabs?.query) {
     try {
       const tabs: any[] = await new Promise((resolve) =>
@@ -150,7 +149,6 @@ export async function grabActiveTabSelection(fallbackTab?: SimulatedBrowserTab):
     }
   }
 
-  // 2. Check current window selection
   if (typeof window !== 'undefined') {
     const winSel = window.getSelection()?.toString().trim();
     if (winSel && winSel.length > 3) {
@@ -161,7 +159,6 @@ export async function grabActiveTabSelection(fallbackTab?: SimulatedBrowserTab):
     }
   }
 
-  // 3. Try clipboard text if permitted
   if (typeof navigator !== 'undefined' && navigator.clipboard?.readText) {
     try {
       const clip = (await navigator.clipboard.readText()).trim();
@@ -176,7 +173,6 @@ export async function grabActiveTabSelection(fallbackTab?: SimulatedBrowserTab):
     }
   }
 
-  // 4. Use currently active simulated tab in extension preview
   const targetTab = fallbackTab || SIMULATED_ACTIVE_TABS[0];
   return {
     text: targetTab.snippet,
@@ -328,7 +324,6 @@ function generateIconPngBytes(size: number): Uint8Array {
     ctx.closePath();
     ctx.fill();
 
-    // Shield symbol in center
     ctx.fillStyle = '#ffffff';
     ctx.font = `bold ${Math.round(size * 0.52)}px sans-serif`;
     ctx.textAlign = 'center';
@@ -347,7 +342,6 @@ function generateIconPngBytes(size: number): Uint8Array {
 
 /**
  * Pure TypeScript ZIP Archive Builder (Store method + CRC32)
- * Supports both UTF-8 text files and binary Uint8Array files (for icons).
  */
 function crc32(bytes: Uint8Array): number {
   let c = 0xffffffff;
@@ -360,7 +354,7 @@ function crc32(bytes: Uint8Array): number {
   return (c ^ 0xffffffff) >>> 0;
 }
 
-function buildZipBlob(files: Array<{ name: string; content: string | Uint8Array }>): Blob {
+export function buildZipBlob(files: Array<{ name: string; content: string | Uint8Array }>): Blob {
   const encoder = new TextEncoder();
   const localParts: Uint8Array[] = [];
   const centralParts: Uint8Array[] = [];
@@ -373,44 +367,42 @@ function buildZipBlob(files: Array<{ name: string; content: string | Uint8Array 
     const crc = crc32(dataBytes);
     const size = dataBytes.length;
 
-    // Local file header (30 bytes + filename)
     const localHeader = new Uint8Array(30 + nameBytes.length);
     const lv = new DataView(localHeader.buffer);
-    lv.setUint32(0, 0x04034b50, true); // signature
-    lv.setUint16(4, 20, true); // version needed
-    lv.setUint16(6, 0, true); // flags
-    lv.setUint16(8, 0, true); // compression: 0 (store)
-    lv.setUint16(10, 0, true); // mod time
-    lv.setUint16(12, 0, true); // mod date
-    lv.setUint32(14, crc, true); // crc32
-    lv.setUint32(18, size, true); // compressed size
-    lv.setUint32(22, size, true); // uncompressed size
-    lv.setUint16(26, nameBytes.length, true); // filename length
-    lv.setUint16(28, 0, true); // extra length
+    lv.setUint32(0, 0x04034b50, true);
+    lv.setUint16(4, 20, true);
+    lv.setUint16(6, 0, true);
+    lv.setUint16(8, 0, true);
+    lv.setUint16(10, 0, true);
+    lv.setUint16(12, 0, true);
+    lv.setUint32(14, crc, true);
+    lv.setUint32(18, size, true);
+    lv.setUint32(22, size, true);
+    lv.setUint16(26, nameBytes.length, true);
+    lv.setUint16(28, 0, true);
     localHeader.set(nameBytes, 30);
 
     localParts.push(localHeader, dataBytes);
 
-    // Central directory header (46 bytes + filename)
     const centralHeader = new Uint8Array(46 + nameBytes.length);
     const cv = new DataView(centralHeader.buffer);
-    cv.setUint32(0, 0x02014b50, true); // signature
-    cv.setUint16(4, 20, true); // version made by
-    cv.setUint16(6, 20, true); // version needed
-    cv.setUint16(8, 0, true); // flags
-    cv.setUint16(10, 0, true); // compression: 0
-    cv.setUint16(12, 0, true); // mod time
-    cv.setUint16(14, 0, true); // mod date
-    cv.setUint32(16, crc, true); // crc32
-    cv.setUint32(20, size, true); // compressed size
-    cv.setUint32(24, size, true); // uncompressed size
-    cv.setUint16(28, nameBytes.length, true); // filename length
-    cv.setUint16(30, 0, true); // extra length
-    cv.setUint16(32, 0, true); // comment length
-    cv.setUint16(34, 0, true); // disk number
-    cv.setUint16(36, 0, true); // internal attrs
-    cv.setUint32(38, 0, true); // external attrs
-    cv.setUint32(42, offset, true); // relative offset
+    cv.setUint32(0, 0x02014b50, true);
+    cv.setUint16(4, 20, true);
+    cv.setUint16(6, 20, true);
+    cv.setUint16(8, 0, true);
+    cv.setUint16(10, 0, true);
+    cv.setUint16(12, 0, true);
+    cv.setUint16(14, 0, true);
+    cv.setUint32(16, crc, true);
+    cv.setUint32(20, size, true);
+    cv.setUint32(24, size, true);
+    cv.setUint16(28, nameBytes.length, true);
+    cv.setUint16(30, 0, true);
+    cv.setUint16(32, 0, true);
+    cv.setUint16(34, 0, true);
+    cv.setUint16(36, 0, true);
+    cv.setUint32(38, 0, true);
+    cv.setUint32(42, offset, true);
     centralHeader.set(nameBytes, 46);
 
     centralParts.push(centralHeader);
@@ -420,32 +412,64 @@ function buildZipBlob(files: Array<{ name: string; content: string | Uint8Array 
   const centralSize = centralParts.reduce((acc, arr) => acc + arr.length, 0);
   const eocd = new Uint8Array(22);
   const ev = new DataView(eocd.buffer);
-  ev.setUint32(0, 0x06054b50, true); // EOCD signature
-  ev.setUint16(4, 0, true); // disk number
-  ev.setUint16(6, 0, true); // start disk
-  ev.setUint16(8, files.length, true); // entries on disk
-  ev.setUint16(10, files.length, true); // total entries
-  ev.setUint32(12, centralSize, true); // central directory size
-  ev.setUint32(16, offset, true); // central directory offset
-  ev.setUint16(20, 0, true); // comment length
+  ev.setUint32(0, 0x06054b50, true);
+  ev.setUint16(4, 0, true);
+  ev.setUint16(6, 0, true);
+  ev.setUint16(8, files.length, true);
+  ev.setUint16(10, files.length, true);
+  ev.setUint32(12, centralSize, true);
+  ev.setUint32(16, offset, true);
+  ev.setUint16(20, 0, true);
 
   return new Blob([...localParts, ...centralParts, eocd] as unknown as BlobPart[], {
     type: 'application/zip',
   });
 }
 
-export function downloadChromeExtensionZip(): void {
-  const appOrigin =
-    typeof window !== 'undefined' && window.location.origin
-      ? window.location.origin
-      : REMOTE_BACKEND_ORIGIN;
+/**
+ * Downloads the standalone Manifest V3 Chrome Extension (.zip) containing the compiled React bundle
+ * (popup.html, popup-bundle.js, popup-bundle.css, manifest.json, background.js, content.js, icons).
+ */
+export async function downloadChromeExtensionZip(): Promise<void> {
+  // 1. Try server-packaged standalone extension ZIP first (/api/extension-zip)
+  try {
+    const res = await fetch('/api/extension-zip');
+    if (res.ok && res.headers.get('content-type')?.includes('application/zip')) {
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'scamlens-ai-chrome-extension.zip';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      return;
+    }
+  } catch {
+    // Fall through to client-side standalone builder
+  }
+
+  // 2. Client-side standalone builder: fetches compiled /popup-bundle.js and /popup-bundle.css
+  let bundleJs = '';
+  let bundleCss = '';
+  try {
+    const [jsRes, cssRes] = await Promise.all([
+      fetch('/popup-bundle.js'),
+      fetch('/popup-bundle.css'),
+    ]);
+    if (jsRes.ok) bundleJs = await jsRes.text();
+    if (cssRes.ok) bundleCss = await cssRes.text();
+  } catch {
+    // ignore
+  }
 
   const manifestJson = JSON.stringify(
     {
       manifest_version: 3,
       name: 'ScamLens AI — Scam & Phishing Detector',
       short_name: 'ScamLens AI',
-      version: '1.3.0',
+      version: '1.4.0',
       description:
         'Check if a message, email, or link might be a scam before you act with Gemma AI risk reports, verbatim evidence, and inert link inspection.',
       icons: {
@@ -462,13 +486,10 @@ export function downloadChromeExtensionZip(): void {
           '128': 'icon128.png',
         },
       },
-      side_panel: {
-        default_path: 'popup.html',
-      },
       background: {
         service_worker: 'background.js',
       },
-      permissions: ['activeTab', 'contextMenus', 'storage', 'scripting', 'sidePanel'],
+      permissions: ['activeTab', 'contextMenus', 'storage', 'scripting'],
       host_permissions: ['<all_urls>'],
       content_scripts: [
         {
@@ -484,107 +505,148 @@ export function downloadChromeExtensionZip(): void {
 
   const popupHtml = `<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ScamLens AI Extension</title>
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      width: 420px;
-      height: 600px;
-      overflow: hidden;
-      background: #020617;
-      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-    }
-    iframe {
-      width: 100%;
-      height: 100%;
-      border: 0;
-    }
-  </style>
-</head>
-<body>
-  <iframe id="scamlens-frame" src="${appOrigin}/?mode=popup" allow="microphone; clipboard-read; clipboard-write"></iframe>
-  <script src="popup.js"></script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ScamLens AI Extension</title>
+    <link rel="stylesheet" href="./popup-bundle.css" />
+  </head>
+  <body class="chrome-ext-popup">
+    <div id="root"></div>
+    <script type="module" src="./popup-bundle.js"></script>
+  </body>
 </html>`;
 
-  const popupJs = `/* global chrome */
-(function () {
-  const frame = document.getElementById('scamlens-frame');
-  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-    chrome.storage.local.get(['pendingScanText'], function (res) {
-      if (res && res.pendingScanText && frame) {
-        const baseUrl = '${appOrigin}/?mode=popup&scan=' + encodeURIComponent(res.pendingScanText);
-        frame.src = baseUrl;
-        chrome.storage.local.remove(['pendingScanText']);
-      }
-    });
-  }
-})();
-`;
-
   const backgroundJs = `/* global chrome */
+const BACKEND_ORIGIN = '${REMOTE_BACKEND_ORIGIN}';
+
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.removeAll(() => {
-    chrome.contextMenus.create({
-      id: 'scamlens-scan-selection',
-      title: 'Scan selected text with ScamLens AI',
-      contexts: ['selection']
+  try {
+    chrome.contextMenus.removeAll(() => {
+      chrome.contextMenus.create({
+        id: 'scamlens-scan-selection',
+        title: 'Scan selected text with ScamLens AI',
+        contexts: ['selection']
+      });
+      chrome.contextMenus.create({
+        id: 'scamlens-scan-link',
+        title: 'Inspect suspicious link with ScamLens AI',
+        contexts: ['link']
+      });
     });
-    chrome.contextMenus.create({
-      id: 'scamlens-scan-link',
-      title: 'Inspect suspicious link with ScamLens AI',
-      contexts: ['link']
-    });
-  });
+  } catch (e) {}
 });
 
-chrome.contextMenus.onClicked.addListener((info, tab) => {
+chrome.contextMenus.onClicked.addListener((info) => {
   const textToScan = info.selectionText || info.linkUrl || '';
   if (!textToScan) return;
-  chrome.storage.local.set({ pendingScanText: textToScan }, () => {
-    if (chrome.sidePanel && chrome.sidePanel.open && tab && tab.windowId) {
-      chrome.sidePanel.open({ windowId: tab.windowId }).catch(() => {});
+  chrome.storage.local.set(
+    {
+      pendingScanText: textToScan,
+      pendingScanTimestamp: Date.now()
+    },
+    () => {
+      chrome.windows.create({
+        url: chrome.runtime.getURL('popup.html?scan=' + encodeURIComponent(textToScan)),
+        type: 'popup',
+        width: 440,
+        height: 680
+      });
     }
-  });
+  );
+});
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message && message.type === 'SCAMLENS_QUICK_SCAN' && message.text) {
+    const textToScan = String(message.text).trim();
+    chrome.storage.local.set(
+      {
+        pendingScanText: textToScan,
+        pendingScanSourceUrl: message.url || (sender && sender.tab && sender.tab.url) || '',
+        pendingScanTimestamp: Date.now()
+      },
+      () => {
+        chrome.windows.create({
+          url: chrome.runtime.getURL('popup.html?scan=' + encodeURIComponent(textToScan)),
+          type: 'popup',
+          width: 440,
+          height: 680
+        });
+        sendResponse({ ok: true });
+      }
+    );
+    return true;
+  }
+
+  if (message && message.type === 'SCAMLENS_CAPTURE_TAB') {
+    chrome.tabs.captureVisibleTab(null, { format: 'png' }, (dataUrl) => {
+      if (chrome.runtime.lastError || !dataUrl) {
+        sendResponse({ ok: false, error: 'Could not capture tab' });
+      } else {
+        sendResponse({ ok: true, dataUrl });
+      }
+    });
+    return true;
+  }
+  return false;
 });
 `;
 
   const contentJs = `/* global chrome */
 (function () {
-  if (window.__scamlensExtLoaded) return;
-  window.__scamlensExtLoaded = true;
+  if (window.__scamlensContentScriptLoaded) return;
+  window.__scamlensContentScriptLoaded = true;
+
+  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
+    chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+      if (msg && msg.type === 'SCAMLENS_GET_PAGE_SELECTION') {
+        const selection = (window.getSelection() && window.getSelection().toString().trim()) || '';
+        const bodySnippet = ((document.body && document.body.innerText) || '').trim().slice(0, 2500);
+        sendResponse({
+          selectedText: selection,
+          pageText: bodySnippet,
+          url: window.location.href,
+          title: document.title || ''
+        });
+        return true;
+      }
+      return false;
+    });
+  }
 })();
 `;
 
-  const readmeTxt = `ScamLens AI — Chrome / Edge / Brave Browser Extension (Manifest V3)
-====================================================================
+  const readmeTxt = `ScamLens AI — Standalone Chrome / Edge / Brave Extension (Manifest V3)
+======================================================================
 
-How to Install in 30 Seconds:
-1. Unzip this file (scamlens-ai-chrome-extension.zip) into a folder on your computer.
-2. Open Chrome (or Edge / Brave) and go to: chrome://extensions
-3. Turn ON "Developer mode" in the top-right corner, click "Load unpacked", and select the unzipped folder.
-
-Features Included:
-- Toolbar Popup & Side Panel with full ScamLens AI Analyzer, AI Chat, Voice Advisor, 50+ Languages, and Gemma 3 Models.
-- Right-Click Context Menu: Highlight any suspicious email or message text on any webpage -> Right-click -> "Scan selected text with ScamLens AI".
+IMPORTANT — HOW TO UPLOAD TO CHROME EXTENSION MANAGER (chrome://extensions):
+1. UNZIP / EXTRACT "scamlens-ai-chrome-extension.zip" into a regular folder first!
+   (Chrome's "Load unpacked" button requires an UNZIPPED folder, not a .zip file).
+2. Or, if you downloaded the project from AI Studio ("Download App"), simply unzip the project folder — "manifest.json" and "popup.html" are already at the root of the project folder!
+3. Open Chrome (or Edge / Brave) and go to: chrome://extensions
+4. Turn ON "Developer mode" (top-right switch).
+5. Click "Load unpacked" (top-left button) and select the UNZIPPED folder.
 `;
 
-  const blob = buildZipBlob([
+  const zipFiles: Array<{ name: string; content: string | Uint8Array }> = [
     { name: 'manifest.json', content: manifestJson },
     { name: 'icon16.png', content: generateIconPngBytes(16) },
     { name: 'icon48.png', content: generateIconPngBytes(48) },
     { name: 'icon128.png', content: generateIconPngBytes(128) },
     { name: 'popup.html', content: popupHtml },
-    { name: 'popup.js', content: popupJs },
     { name: 'background.js', content: backgroundJs },
     { name: 'content.js', content: contentJs },
     { name: 'README.txt', content: readmeTxt },
-  ]);
+  ];
 
+  if (bundleJs) {
+    zipFiles.push({ name: 'popup-bundle.js', content: bundleJs });
+  }
+  if (bundleCss) {
+    zipFiles.push({ name: 'popup-bundle.css', content: bundleCss });
+  }
+
+  const blob = buildZipBlob(zipFiles);
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -592,5 +654,5 @@ Features Included:
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 3000);
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
 }

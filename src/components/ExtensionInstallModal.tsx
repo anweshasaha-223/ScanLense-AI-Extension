@@ -8,6 +8,7 @@ import {
   Camera,
   Globe,
   Sparkles,
+  FolderOpen,
 } from 'lucide-react';
 import { downloadChromeExtensionZip, isChromeExtensionContext } from '../lib/extension-bridge';
 
@@ -25,8 +26,8 @@ export const ExtensionInstallModal: React.FC<ExtensionInstallModalProps> = ({
   const [downloaded, setDownloaded] = useState(false);
   const isInstalledExt = isChromeExtensionContext();
 
-  const handleDownload = () => {
-    downloadChromeExtensionZip();
+  const handleDownload = async () => {
+    await downloadChromeExtensionZip();
     setDownloaded(true);
   };
 
@@ -46,7 +47,7 @@ export const ExtensionInstallModal: React.FC<ExtensionInstallModalProps> = ({
               <p className="text-[11px] text-indigo-600 dark:text-indigo-400 font-medium">
                 {isInstalledExt
                   ? 'Running inside Chrome Extension environment'
-                  : 'Chrome · Edge · Brave · Chromium Side Panel & Popup'}
+                  : 'Standalone Native Chrome · Edge · Brave Extension'}
               </p>
             </div>
           </div>
@@ -59,14 +60,14 @@ export const ExtensionInstallModal: React.FC<ExtensionInstallModalProps> = ({
           </button>
         </div>
 
-        {/* Viewport Mode Switcher (Extension Popup 420px vs Expanded View) */}
+        {/* Viewport Mode Switcher */}
         <div className="p-3.5 rounded-2xl bg-indigo-50/70 dark:bg-slate-800/80 border border-indigo-100 dark:border-slate-700 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="text-xs font-bold text-slate-900 dark:text-white">
               Extension Layout Mode
             </div>
             <p className="text-[11px] text-slate-500 dark:text-slate-400">
-              Switch between compact Extension Popup (420px) and Expanded Side-Panel / Tab view
+              Switch between compact Extension Popup (420px) and Expanded Full View
             </p>
           </div>
           <div className="inline-flex p-1 rounded-xl bg-white dark:bg-slate-900 border border-indigo-100 dark:border-slate-700 shrink-0">
@@ -95,6 +96,70 @@ export const ExtensionInstallModal: React.FC<ExtensionInstallModalProps> = ({
           </div>
         </div>
 
+        {/* 1-Click Download Extension Package */}
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white space-y-3 shadow-lg shadow-indigo-500/20">
+          <div>
+            <div className="text-xs font-extrabold flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Standalone Manifest V3 Extension Package</span>
+            </div>
+            <p className="text-[11px] text-indigo-100 mt-0.5">
+              Includes pre-compiled <code className="font-mono">manifest.json</code>,{' '}
+              <code className="font-mono">popup.html</code>,{' '}
+              <code className="font-mono">popup-bundle.js</code>,{' '}
+              <code className="font-mono">popup-bundle.css</code>, icons, and workers.
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2">
+            <button
+              type="button"
+              onClick={handleDownload}
+              className="flex-1 min-h-[42px] py-2 px-3 rounded-xl bg-white text-indigo-700 hover:bg-indigo-50 font-extrabold text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
+            >
+              {downloaded ? (
+                <>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Downloaded .ZIP! Extract before loading</span>
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4 shrink-0" />
+                  <span>Download Extension (.zip)</span>
+                </>
+              )}
+            </button>
+
+            <a
+              href="/api/extension-zip"
+              download="scamlens-ai-chrome-extension.zip"
+              className="min-h-[42px] py-2 px-3 rounded-xl bg-indigo-900/60 hover:bg-indigo-900/80 border border-white/25 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all"
+            >
+              <Download className="w-3.5 h-3.5 shrink-0" />
+              <span>Direct ZIP Link</span>
+            </a>
+          </div>
+        </div>
+
+        {/* Why "Load Unpacked" requires an unzipped folder */}
+        <div className="space-y-2.5 text-xs text-slate-600 dark:text-slate-300 bg-amber-50/80 dark:bg-amber-950/30 p-3.5 rounded-2xl border border-amber-200 dark:border-amber-900/60">
+          <div className="font-extrabold text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
+            <FolderOpen className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>How to Upload in Chrome Extension Manager (chrome://extensions):</span>
+          </div>
+          <ol className="list-decimal list-inside space-y-1.5 text-[11px] leading-relaxed">
+            <li>
+              <strong>Extract / Unzip the downloaded ZIP first</strong> into a regular folder on your computer (Chrome&apos;s <em>Load unpacked</em> button only lets you pick an <strong>unzipped folder</strong>, not a <code className="font-mono">.zip</code> file).
+            </li>
+            <li>
+              <em>Alternative:</em> If you used AI Studio&apos;s top-right <strong>Download App</strong> button, simply unzip that project folder — <code className="font-mono">manifest.json</code> and <code className="font-mono">popup.html</code> are now right in the root folder!
+            </li>
+            <li>
+              Open <code className="font-mono text-indigo-600 dark:text-indigo-400">chrome://extensions</code>, enable <strong>Developer mode</strong> (top right), click <strong>Load unpacked</strong> (top left), and select the <strong>unzipped folder</strong>.
+            </li>
+          </ol>
+        </div>
+
         {/* Extension Features */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
           <div className="p-3 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/70 dark:border-emerald-900/50 space-y-1">
@@ -108,7 +173,7 @@ export const ExtensionInstallModal: React.FC<ExtensionInstallModalProps> = ({
           </div>
 
           <div className="p-3 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/70 dark:border-amber-900/50 space-y-1">
-            <div className="font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+            <div className="font-bold text-amber-800 dark:text-emerald-300 flex items-center gap-1.5">
               <Camera className="w-3.5 h-3.5 text-amber-600 shrink-0" />
               <span>Tab OCR Capture</span>
             </div>
@@ -126,57 +191,6 @@ export const ExtensionInstallModal: React.FC<ExtensionInstallModalProps> = ({
               Inspect the active tab URL for lookalike domains &amp; phishing flags.
             </p>
           </div>
-        </div>
-
-        {/* 1-Click Download Extension Package */}
-        <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white space-y-3 shadow-lg shadow-indigo-500/20">
-          <div className="flex items-center justify-between gap-2">
-            <div>
-              <div className="text-xs font-extrabold flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Install in Chrome / Edge / Brave</span>
-              </div>
-              <p className="text-[11px] text-indigo-100 mt-0.5">
-                Download the ready-to-load Manifest V3 Extension package (.zip)
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleDownload}
-            className="w-full min-h-[44px] py-2.5 px-4 rounded-xl bg-white text-indigo-700 hover:bg-indigo-50 font-extrabold text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
-          >
-            {downloaded ? (
-              <>
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>Downloaded scamlens-ai-chrome-extension.zip!</span>
-              </>
-            ) : (
-              <>
-                <Download className="w-4 h-4" />
-                <span>Download Chrome Extension (.zip)</span>
-              </>
-            )}
-          </button>
-        </div>
-
-        {/* 3-Step Load Unpacked Instructions */}
-        <div className="space-y-2 text-xs text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800">
-          <div className="font-bold text-slate-900 dark:text-white">
-            How to Load Unpacked in Chrome:
-          </div>
-          <ol className="list-decimal list-inside space-y-1 text-[11px] leading-relaxed">
-            <li>
-              Unzip <code className="font-mono text-indigo-600 dark:text-indigo-400">scamlens-ai-chrome-extension.zip</code> into a folder (or use the project&apos;s <code className="font-mono text-indigo-600 dark:text-indigo-400">dist/</code> build folder).
-            </li>
-            <li>
-              Open <code className="font-mono text-indigo-600 dark:text-indigo-400">chrome://extensions</code> in your browser and toggle on <strong>Developer mode</strong>.
-            </li>
-            <li>
-              Click <strong>Load unpacked</strong> and select the folder to pin ScamLens AI to your browser toolbar.
-            </li>
-          </ol>
         </div>
       </div>
     </div>

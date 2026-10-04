@@ -4,6 +4,7 @@ import http from 'http';
 import { WebSocketServer } from 'ws';
 import { Modality } from '@google/genai';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import {
   AnalyzeRequestSchema,
@@ -54,6 +55,121 @@ app.get('/api/health', (_req: Request, res: Response) => {
     screenshotsEnabled: ENABLE_SCREENSHOTS,
     timestamp: new Date().toISOString(),
   });
+});
+
+function crc32Buffer(buf: Buffer): number {
+  let c = 0xffffffff;
+  for (let i = 0; i < buf.length; i++) {
+    c ^= buf[i];
+    for (let j = 0; j < 8; j++) {
+      c = (c >>> 1) ^ (c & 1 ? 0xedb88320 : 0);
+    }
+  }
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+function buildZipBuffer(files: Array<{ name: string; data: Buffer }>): Buffer {
+  const localParts: Buffer[] = [];
+  const centralParts: Buffer[] = [];
+  let offset = 0;
+
+  for (const file of files) {
+    const nameBuf = Buffer.from(file.name, 'utf8');
+    const dataBuf = file.data;
+    const crc = crc32Buffer(dataBuf);
+    const size = dataBuf.length;
+
+    const localHeader = Buffer.alloc(30 + nameBuf.length);
+    localHeader.writeUInt32LE(0x04034b50, 0);
+    localHeader.writeUInt16LE(20, 4);
+    localHeader.writeUInt16LE(0, 6);
+    localHeader.writeUInt16LE(0, 8);
+    localHeader.writeUInt16LE(0, 10);
+    localHeader.writeUInt16LE(0, 12);
+    localHeader.writeUInt32LE(crc, 14);
+    localHeader.writeUInt32LE(size, 18);
+    localHeader.writeUInt32LE(size, 22);
+    localHeader.writeUInt16LE(nameBuf.length, 26);
+    localHeader.writeUInt16LE(0, 28);
+    nameBuf.copy(localHeader, 30);
+
+    localParts.push(localHeader, dataBuf);
+
+    const centralHeader = Buffer.alloc(46 + nameBuf.length);
+    centralHeader.writeUInt32LE(0x02014b50, 0);
+    centralHeader.writeUInt16LE(20, 4);
+    centralHeader.writeUInt16LE(20, 6);
+    centralHeader.writeUInt16LE(0, 8);
+    centralHeader.writeUInt16LE(0, 10);
+    centralHeader.writeUInt16LE(0, 12);
+    centralHeader.writeUInt16LE(0, 14);
+    centralHeader.writeUInt32LE(crc, 16);
+    centralHeader.writeUInt32LE(size, 20);
+    centralHeader.writeUInt32LE(size, 24);
+    centralHeader.writeUInt16LE(nameBuf.length, 28);
+    centralHeader.writeUInt16LE(0, 30);
+    centralHeader.writeUInt16LE(0, 32);
+    centralHeader.writeUInt16LE(0, 34);
+    centralHeader.writeUInt16LE(0, 36);
+    centralHeader.writeUInt32LE(0, 38);
+    centralHeader.writeUInt32LE(offset, 42);
+    nameBuf.copy(centralHeader, 46);
+
+    centralParts.push(centralHeader);
+    offset += localHeader.length + size;
+  }
+
+  const centralSize = centralParts.reduce((acc, b) => acc + b.length, 0);
+  const eocd = Buffer.alloc(22);
+  eocd.writeUInt32LE(0x06054b50, 0);
+  eocd.writeUInt16LE(0, 4);
+  eocd.writeUInt16LE(0, 6);
+  eocd.writeUInt16LE(files.length, 8);
+  eocd.writeUInt16LE(files.length, 10);
+  eocd.writeUInt32LE(centralSize, 12);
+  eocd.writeUInt32LE(offset, 16);
+  eocd.writeUInt16LE(0, 20);
+
+  return Buffer.concat([...localParts, ...centralParts, eocd]);
+}
+
+// Serve complete standalone Manifest V3 Chrome Extension (.zip)
+app.get('/api/extension-zip', (_req: Request, res: Response) => {
+  try {
+    const extFileNames = [
+      'manifest.json',
+      'popup.html',
+      'popup-bundle.js',
+      'popup-bundle.css',
+      'background.js',
+      'content.js',
+      'icon16.png',
+      'icon48.png',
+      'icon128.png',
+    ];
+
+    const zipEntries: Array<{ name: string; data: Buffer }> = [];
+    for (const fileName of extFileNames) {
+      const rootFile = path.resolve(__dirname, fileName);
+      const publicFile = path.resolve(__dirname, 'public', fileName);
+      if (fs.existsSync(rootFile)) {
+        zipEntries.push({ name: fileName, data: fs.readFileSync(rootFile) });
+      } else if (fs.existsSync(publicFile)) {
+        zipEntries.push({ name: fileName, data: fs.readFileSync(publicFile) });
+      }
+    }
+
+    const zipBuffer = buildZipBuffer(zipEntries);
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="scamlens-ai-chrome-extension.zip"'
+    );
+    res.setHeader('Content-Length', String(zipBuffer.length));
+    res.send(zipBuffer);
+  } catch (err: any) {
+    res.status(500).json({ error: { message: err?.message || 'Failed to build extension zip' } });
+  }
 });
 
 // Single analysis endpoint
